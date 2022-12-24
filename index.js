@@ -6,6 +6,7 @@ dayjs.extend(localizedFormat);
 const axios = require('axios');
 const getDashboardScreenshot = require('./screenshot');
 const im = require('imagemagick');
+const fs = require('fs');
 
 const HIGH_GLUCOSE = 180;
 
@@ -64,8 +65,7 @@ async function getFun(){
    return fun;
 };
 
-async function getLastHighReading(){
- 
+async function getLastHighReadingFromLogbook(){
    let lastHighReading;
    try{
       const {getLogbook} = LibreLinkUpClient({username: 'boenigk@gmail.com', password: 'MdJ!$9Q(aqP6eEF'});
@@ -76,19 +76,12 @@ async function getLastHighReading(){
       const highLogItems = logItems.filter(item => {
          return item.Value >= HIGH_GLUCOSE
       })
-      lastHighReading = highLogItems[0];
+      lastHighReading = (highLogItems[0]) ? highLogItems[0] : null;
    }
    catch(error){
       lastHighReading = { error: error }
    }
    return lastHighReading;
-   
-   /*
-   // for testing, to not slam the librelink api
-   return {
-      date: new Date()
-   }
-   */
 }
 
 async function imConvert(args){
@@ -105,13 +98,45 @@ async function imConvert(args){
    });
 }
 
+
+
 async function init(){
+
+   let storedLastHighReadingDate;
+   async function getLastHighReading(){
+
+      // rehydrate if needed
+      if(!storedLastHighReadingDate){
+         storedLastHighReadingDate = JSON.parse(fs.readFileSync('storedLastHighReadingDate.json'));
+         storedLastHighReadingDate = new Date(storedLastHighReadingDate);
+      }
+
+      // get from logbook API
+      let lastHighReading = await getLastHighReadingFromLogbook();
+
+      // maybe there's no lastHighReading in the logbook
+      if(!lastHighReading){
+         lastHighReading = {
+            date: storedLastHighReadingDate
+         }
+      }
+
+      // if logbook API date is newer than stored date, store it 
+      if(lastHighReading.date.getTime() > storedLastHighReadingDate.getTime()){
+         fs.writeFile("storedLastHighReadingDate.json", JSON.stringify(lastHighReading.date), (err) => {
+            if (err) console.log(err);
+         });
+         storedLastHighReadingDate = lastHighReading.date;
+      }
+
+      return lastHighReading;
+   }
+
+
 
    app.get('/last-high-reading-date', async (req, res) => {
       const lastHighReadingDate = await getLastHighReadingDate();
-      return res.status(200).json({
-         lastHighReadingDate: lastHighReadingDate
-      });
+      return res.status(200).json({lastHighReadingDate: lastHighReadingDate});
    });
 
    app.get('/screenshot', async (req, res) => {
@@ -166,7 +191,7 @@ async function init(){
             return '<div>error fetching blood sugar</div>'
          }
          else{
-            const daysSinceLastHigh = dayjs(lastHighReading.date).diff(dayjs(), 'days');
+            const daysSinceLastHigh = dayjs().diff(dayjs(lastHighReading.date), 'days');
             return`
                <div id="number">${daysSinceLastHigh} days</div> 
             `;
@@ -266,5 +291,6 @@ async function init(){
       res.send(template);
    });
 }
+
 
 init();
