@@ -1,5 +1,6 @@
 const express = require('express');
-const {LibreLinkUpClient} = require('@diakem/libre-link-up-api-client');
+//const {LibreLinkUpClient} = require('@diakem/libre-link-up-api-client');
+const LibreLinkUpClient = require('./libre-link-up-api-client');
 const dayjs = require('dayjs');
 const localizedFormat = require('dayjs/plugin/localizedFormat')
 dayjs.extend(localizedFormat);
@@ -81,6 +82,7 @@ async function getLastHighReadingFromLogbook(){
    catch(error){
       lastHighReading = { error: error }
    }
+
    return lastHighReading;
 }
 
@@ -294,3 +296,7 @@ async function init(){
 
 
 init();
+
+module.exports = {
+   app
+};

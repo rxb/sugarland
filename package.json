@@ -2,16 +2,15 @@
   "name": "sugarland",
   "version": "1.0.0",
   "description": "",
-  "main": "test.js",
+  "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "prepare": ""
+    "start": "functions-framework --target=app",
+    "debug": "functions-framework --target=app --debug"       
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@babel/runtime": "^7.20.6",
-    "@diakem/libre-link-up-api-client": "file:~/Repos/libre-link-up-api-client",
     "@google-cloud/functions-framework": "^3.1.3",
     "axios": "^1.2.1",
     "dayjs": "^1.11.7",

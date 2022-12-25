@@ -4,4 +4,6 @@ const testRoute = (req, res) => {
    });
 }
 
-exports.testRoute = testRoute;
+module.exports = {
+   testRoute
+};
