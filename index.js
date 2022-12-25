@@ -203,7 +203,7 @@ async function init(){
             return '<div>error fetching fun stuff</div>'
          }
          return`
-            <div><span style="font-weight: 900">Fun fact:</span> ${fun.fact}</div>
+            <div><span style="font-weight: 900">Did you know?</span> ${fun.fact}</div>
          `;
       }
 
