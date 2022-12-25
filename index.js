@@ -5,9 +5,14 @@ const dayjs = require('dayjs');
 const localizedFormat = require('dayjs/plugin/localizedFormat')
 dayjs.extend(localizedFormat);
 const axios = require('axios');
-const getDashboardScreenshot = require('./screenshot');
+const { Storage } = require('@google-cloud/storage');
 const im = require('imagemagick');
 const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const tmpdir = os.tmpdir();
+
+const getDashboardScreenshot = require('./screenshot');
 
 const HIGH_GLUCOSE = 180;
 
@@ -101,15 +106,26 @@ async function imConvert(args){
 }
 
 
-
 async function init(){
 
    let storedLastHighReadingDate;
    async function getLastHighReading(){
 
+      const storage = new Storage();
+      const bucket = storage.bucket('527-osceola');
+      const STORED_FILENAME = 'storedLastHighReadingDate.json';
+
       // rehydrate if needed
       if(!storedLastHighReadingDate){
-         storedLastHighReadingDate = JSON.parse(fs.readFileSync('storedLastHighReadingDate.json'));
+         //const highReadingContents = await fs.readFileSync('storedLastHighReadingDate.json');
+         const storedExists = await bucket.file(STORED_FILENAME).exists();
+         if(storedExists[0]){
+            const highReadingContents = await bucket.file(STORED_FILENAME).download();
+            storedLastHighReadingDate = JSON.parse(highReadingContents);
+         }
+         else{
+            storedLastHighReadingDate = "2022-12-20T14:19:09.000Z"; // fall back to app creation timestamp if we must
+         }
          storedLastHighReadingDate = new Date(storedLastHighReadingDate);
       }
 
@@ -124,10 +140,16 @@ async function init(){
       }
 
       // if logbook API date is newer than stored date, store it 
+      console.log(lastHighReading.date.getTime());
+      console.log(storedLastHighReadingDate.getTime());
       if(lastHighReading.date.getTime() > storedLastHighReadingDate.getTime()){
+         /*
          fs.writeFile("storedLastHighReadingDate.json", JSON.stringify(lastHighReading.date), (err) => {
             if (err) console.log(err);
          });
+         */
+         console.log('storage attempt');
+         await bucket.file(STORED_FILENAME).save(JSON.stringify(lastHighReading.date));
          storedLastHighReadingDate = lastHighReading.date;
       }
 
@@ -137,15 +159,19 @@ async function init(){
 
 
    app.get('/last-high-reading-date', async (req, res) => {
-      const lastHighReadingDate = await getLastHighReadingDate();
-      return res.status(200).json({lastHighReadingDate: lastHighReadingDate});
+      const lastHighReading = await getLastHighReading();
+      return res.status(200).json({lastHighReading: lastHighReading});
    });
 
    app.get('/screenshot', async (req, res) => {
-      await getDashboardScreenshot(__dirname + '/screenshot.png');
-      await imConvert(['screenshot.png', '-colorspace', 'Gray', '-dither', 'FloydSteinberg', '-quality', '75', '-define', 'png:color-type=0', '-define', 'png:bit-depth=8', 'kindleImage.png' ]);
+      const screenshotImagePath = path.join(tmpdir,'screenshotImage.png');
+      const kindleImagePath = path.join(tmpdir,'kindleImage.png');
+
+      const screenshotImage = await getDashboardScreenshot();
+      fs.writeFileSync(screenshotImagePath, screenshotImage);
+      await imConvert([screenshotImagePath, '-colorspace', 'Gray', '-dither', 'FloydSteinberg', '-quality', '75', '-define', 'png:color-type=0', '-define', 'png:bit-depth=8', kindleImagePath ]);
       res.setHeader('content-type', 'image/png');
-      return res.sendFile(__dirname + '/kindleImage.png');
+      return res.sendFile(kindleImagePath);
    });
 
    app.get('/', async (req, res) => {
@@ -182,7 +208,7 @@ async function init(){
             return`
                <div>${kelvinToF(weather.main.temp)}°</div>
                <div style="margin-left: 0px;">
-                  <img src="/svg/${WEATHER_ICONS[weather.weather[0].icon]}.svg" style="width: 92px" />
+                  <img src="svg/${WEATHER_ICONS[weather.weather[0].icon]}.svg" style="width: 92px" />
                </div>
             `;
          }

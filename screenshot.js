@@ -30,7 +30,7 @@ async function getDashboardScreenshot(filePath) {
    page = await browser.newPage();
 	await page.setDefaultNavigationTimeout(0);
    await page.goto('http://localhost:3000/', { waitUntil: 'networkidle0' });
-   const image = await page.screenshot({ path: filePath });
+   const image = await page.screenshot(filePath ? { path: filePath } : {});
    await browser.close();
    console.log(`getDashboardScreenshot end ${dayjs().format('HH:mm:ss')}`);
    return image;

@@ -5,17 +5,18 @@
   "main": "index.js",
   "scripts": {
     "start": "functions-framework --target=app",
-    "debug": "functions-framework --target=app --debug"       
+    "debug": "functions-framework --target=app --debug"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@babel/runtime": "^7.20.6",
     "@google-cloud/functions-framework": "^3.1.3",
+    "@google-cloud/storage": "^6.8.0",
     "axios": "^1.2.1",
     "dayjs": "^1.11.7",
     "express": "^4.18.2",
     "imagemagick": "^0.1.3",
-    "puppeteer": "^19.4.1"
+    "puppeteer": "^16.2.0"
   }
 }
