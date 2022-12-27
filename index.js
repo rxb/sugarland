@@ -1,9 +1,16 @@
 const express = require('express');
 //const {LibreLinkUpClient} = require('@diakem/libre-link-up-api-client');
 const LibreLinkUpClient = require('./libre-link-up-api-client');
+
 const dayjs = require('dayjs');
-const localizedFormat = require('dayjs/plugin/localizedFormat')
+const localizedFormat = require('dayjs/plugin/localizedFormat');
+const utc = require('dayjs/plugin/utc')
+const timezone = require('dayjs/plugin/timezone')
+dayjs.extend(utc);
+dayjs.extend(timezone);
 dayjs.extend(localizedFormat);
+const tz = "America/New_York";
+
 const axios = require('axios');
 const { Storage } = require('@google-cloud/storage');
 const im = require('imagemagick');
@@ -14,7 +21,8 @@ const tmpdir = os.tmpdir();
 
 const getDashboardScreenshot = require('./screenshot');
 
-const HIGH_GLUCOSE = 180;
+const HIGH_GLUCOSE = 200;
+
 
 const app = express()
 const port = 3000;
@@ -208,7 +216,7 @@ async function init(){
             return`
                <div>${kelvinToF(weather.main.temp)}°</div>
                <div style="margin-left: 0px;">
-                  <img src="svg/${WEATHER_ICONS[weather.weather[0].icon]}.svg" style="width: 92px" />
+                  <img src="svg/${WEATHER_ICONS[weather.weather[0].icon]}.svg" style="width: 96px" />
                </div>
             `;
          }
@@ -220,8 +228,16 @@ async function init(){
          }
          else{
             const daysSinceLastHigh = dayjs().diff(dayjs(lastHighReading.date), 'days');
+            const hoursSinceLastHigh = dayjs().diff(dayjs(lastHighReading.date), 'hours');
+            let sinceLastHighString;
+            if(daysSinceLastHigh < 1){
+               sinceLastHighString = `${hoursSinceLastHigh} ${(hoursSinceLastHigh == 1) ? 'hour' : 'hours'}`;
+            }
+            else{
+               sinceLastHighString = `${daysSinceLastHigh} ${(daysSinceLastHigh == 1) ? 'day' : 'days'}`;
+            }
             return`
-               <div id="number">${daysSinceLastHigh} days</div> 
+               <div id="number">${sinceLastHighString}</div> 
             `;
          }
       }
@@ -249,7 +265,7 @@ async function init(){
                height: 100%;
                width: 100%;
                display: flex;
-               font-size: 30px;
+               font-size: 32px;
                font-weight: 500;
             }
             
@@ -265,11 +281,13 @@ async function init(){
                flex-direction: column;
             }
             #weather{
-               font-size: 30px;
+               font-size: 32px;
                margin-top: 12px;
+               flex: 0;
             }
 
             #bloodsugar{
+               //font-weight: 800;
                margin: 0 24px;
                flex: 4;
                background-color: black;
@@ -286,7 +304,7 @@ async function init(){
             #joke{
                padding: 0 20px;
                line-height: 1.5em;
-               font-size: 24px;
+               font-size: 28px;
                flex: 3;
                justify-content: center;
                text-align: center;
@@ -298,8 +316,8 @@ async function init(){
             <div id="weather" class="section">
                <div style="display: flex;">
                   <div style="display: flex; flex-direction: column; flex: 1; justify-content: center;">
-                     <div style="font-weight: 800;">${dayjs().format('dddd')}</div>
-                     <div>${dayjs().format('MMM D')}</div>
+                     <div style="font-weight: 800;">${dayjs().tz(tz).format('dddd')}</div>
+                     <div>${dayjs().tz(tz).format('MMM D')}</div>
                   </div>
                   <div style="display: flex; flex: 1; font-size: 56px; text-align: right; align-items: center; justify-content: flex-end">
                      ${renderWeather(weather)}
