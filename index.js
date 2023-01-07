@@ -2,6 +2,7 @@ const express = require('express');
 //const {LibreLinkUpClient} = require('@diakem/libre-link-up-api-client');
 const LibreLinkUpClient = require('./libre-link-up-api-client');
 
+
 const dayjs = require('dayjs');
 const localizedFormat = require('dayjs/plugin/localizedFormat');
 const utc = require('dayjs/plugin/utc')
@@ -20,6 +21,13 @@ const path = require('path');
 const tmpdir = os.tmpdir();
 
 const getDashboardScreenshot = require('./screenshot');
+
+const Pushover = require('node-pushover');
+const po = new Pushover({
+   token: "ahhxoiuf6fj7s8tjaceyvpwhznf76q",
+   user: "ub8n2nvtuczj8o3w4bsduprajy815n"
+});
+//po.send("Blood sugar streak", "You just hit an all-time high");
 
 const HIGH_GLUCOSE = 190;
 
@@ -255,9 +263,9 @@ async function init(){
          }
          else{
             return`
-               <div>${kelvinToF(weather.main.temp)}°</div>
+               <div id="weatherTemp">${kelvinToF(weather.main.temp)}°</div>
                <div style="margin-left: 0px;">
-                  <img src="svg/${WEATHER_ICONS[weather.weather[0].icon]}.svg" style="width: 96px" />
+                  <img src="svg/${WEATHER_ICONS[weather.weather[0].icon]}.svg" id="weatherIcon" />
                </div>
             `;
          }
@@ -300,6 +308,14 @@ async function init(){
       const template = `
          <html>
          <head>
+         <meta name="viewport" content="width=device-width, initial-scale=1" />
+         <meta name="application-name" content="Streak" />
+         <meta name="apple-mobile-web-app-title" content="Streak" />
+         <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+         <link rel="apple-touch-icon" href="icon.png" />
+
+         <meta http-equiv="refresh" content="3600" />
+
          <link rel="preconnect" href="https://fonts.googleapis.com"> 
          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin> 
          <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;800&display=swap" rel="stylesheet">
@@ -309,6 +325,7 @@ async function init(){
                padding: 0;
                font-family: 'Plus Jakarta Sans', sans-serif;
                height: 100%;
+               height: -webkit-fill-available;
                width: 100%;
                display: flex;
                font-size: 32px;
@@ -327,13 +344,20 @@ async function init(){
                flex-direction: column;
             }
             #weather{
-               font-size: 32px;
+               font-size: 1em;
                margin-top: 12px;
                flex: 0;
             }
 
+            #weatherTemp{
+               font-size: 1.75em;
+            }
+
+            #weatherIcon{
+               width: 3em;
+            }
+
             #bloodsugar{
-               //font-weight: 800;
                margin: 0 24px;
                flex: 4;
                background-color: black;
@@ -342,15 +366,16 @@ async function init(){
                align-items: center;
                justify-content: center;
                padding: 30px;
+               text-align: center;
             }
             #number{
-               font-size: 92px;
+               font-size: 2.875em;
                font-weight: 800;
             }
             #joke{
                padding: 0 20px;
                line-height: 1.5em;
-               font-size: 28px;
+               font-size: .875em;
                flex: 3;
                justify-content: center;
                text-align: center;
@@ -360,9 +385,22 @@ async function init(){
                padding-top: 20px;
                border-top: 1px solid white;
             }
+
+            @media screen and (max-width: 425px) {
+               body{
+                  font-size: 24px;
+               }
+               #number{
+                  font-size: 2.5em;
+               }
+               #joke{
+                  font-size: .825em;
+               }
+            }
          </style>
          </head>
          <body>
+
          <div id="container">
             <div id="weather" class="section">
                <div style="display: flex;">
@@ -370,7 +408,7 @@ async function init(){
                      <div style="font-weight: 800;">${dayjs().tz(tz).format('dddd')}</div>
                      <div>${dayjs().tz(tz).format('MMM D')}</div>
                   </div>
-                  <div style="display: flex; flex: 1; font-size: 56px; text-align: right; align-items: center; justify-content: flex-end">
+                  <div style="display: flex; flex: 1; text-align: right; align-items: center; justify-content: flex-end">
                      ${renderWeather(weather)}
                   </div>
                </div>
