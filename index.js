@@ -21,7 +21,11 @@ const tmpdir = os.tmpdir();
 
 const getDashboardScreenshot = require('./screenshot');
 
-const HIGH_GLUCOSE = 200;
+const HIGH_GLUCOSE = 190;
+
+
+
+
 
 
 const app = express()
@@ -116,16 +120,23 @@ async function imConvert(args){
 
 async function init(){
 
+   // if not loaded, load longest streak (in seconds timestamp)
+   // each new high reading, compare longest streak
+   // if it's higher than the current one, save it
+
    let storedLastHighReadingDate;
+   let storedLongestStreak;
+
+   const storage = new Storage();
+   const bucket = storage.bucket('527-osceola');
+ 
+
    async function getLastHighReading(){
 
-      const storage = new Storage();
-      const bucket = storage.bucket('527-osceola');
       const STORED_FILENAME = 'storedLastHighReadingDate.json';
 
       // rehydrate if needed
       if(!storedLastHighReadingDate){
-         //const highReadingContents = await fs.readFileSync('storedLastHighReadingDate.json');
          const storedExists = await bucket.file(STORED_FILENAME).exists();
          if(storedExists[0]){
             const highReadingContents = await bucket.file(STORED_FILENAME).download();
@@ -148,14 +159,7 @@ async function init(){
       }
 
       // if logbook API date is newer than stored date, store it 
-      console.log(lastHighReading.date.getTime());
-      console.log(storedLastHighReadingDate.getTime());
       if(lastHighReading.date.getTime() > storedLastHighReadingDate.getTime()){
-         /*
-         fs.writeFile("storedLastHighReadingDate.json", JSON.stringify(lastHighReading.date), (err) => {
-            if (err) console.log(err);
-         });
-         */
          console.log('storage attempt');
          await bucket.file(STORED_FILENAME).save(JSON.stringify(lastHighReading.date));
          storedLastHighReadingDate = lastHighReading.date;
@@ -164,6 +168,40 @@ async function init(){
       return lastHighReading;
    }
 
+   async function getLongestStreak(lastHighReading){
+      const STORED_FILENAME = 'storedLongestStreak.json';
+
+      if(lastHighReading.error){
+         return {
+            error: true
+         }
+      }
+
+      // rehydrate if needed
+      if(!storedLongestStreak){
+         const storedExists = await bucket.file(STORED_FILENAME).exists();
+         if(storedExists[0]){
+            const longestStreakContents = await bucket.file(STORED_FILENAME).download();
+            storedLongestStreak = JSON.parse(longestStreakContents);
+         }
+         else{
+            storedLongestStreak = 0; // fall back to 0 if we must
+         }
+      }
+      
+      let currentStreak = dayjs().diff(dayjs(lastHighReading.date), 'second');
+
+      // if current streak is longer than stored streak, store it 
+      if(currentStreak > storedLongestStreak){
+         await bucket.file(STORED_FILENAME).save(JSON.stringify(currentStreak));
+         storedLongestStreak = currentStreak;
+      }
+
+      return {
+         currentStreak,
+         longestStreak: storedLongestStreak
+      }
+   }
 
 
    app.get('/last-high-reading-date', async (req, res) => {
@@ -186,6 +224,9 @@ async function init(){
       const weather = await getWeather();
       const fun = await getFun();
       const lastHighReading = await getLastHighReading();
+      //console.log(JSON.stringify(lastHighReading, 0, 2));
+      const streaks = await getLongestStreak(lastHighReading);
+      //console.log(JSON.stringify(streaks, 0, 2));
 
       const renderWeather = (weather) => {
          const WEATHER_ICONS = {
@@ -222,22 +263,27 @@ async function init(){
          }
       }
 
-      const renderHighReading = (lastHighReading) => {
-         if(lastHighReading.error){
+      const getSinceString = (streak) => {
+         const daysSince = Math.floor(streak / (3600 * 24));
+         const hoursSince = Math.floor(streak / 3600);
+         let sinceString;
+         if(daysSince < 3){
+            sinceString = `${hoursSince} ${(hoursSince == 1) ? 'hour' : 'hours'}`;
+         }
+         else{
+            sinceString = `${daysSince} ${(daysSince == 1) ? 'day' : 'days'}`;
+         }
+         return sinceString;
+      }
+
+      const renderHighReading = (streaks) => {
+         if(streaks.error){
             return '<div>error fetching blood sugar</div>'
          }
          else{
-            const daysSinceLastHigh = dayjs().diff(dayjs(lastHighReading.date), 'days');
-            const hoursSinceLastHigh = dayjs().diff(dayjs(lastHighReading.date), 'hours');
-            let sinceLastHighString;
-            if(daysSinceLastHigh < 1){
-               sinceLastHighString = `${hoursSinceLastHigh} ${(hoursSinceLastHigh == 1) ? 'hour' : 'hours'}`;
-            }
-            else{
-               sinceLastHighString = `${daysSinceLastHigh} ${(daysSinceLastHigh == 1) ? 'day' : 'days'}`;
-            }
             return`
-               <div id="number">${sinceLastHighString}</div> 
+               <div id="number">${getSinceString(streaks.currentStreak)}</div> 
+               <div id="longest">Longest: ${getSinceString(streaks.longestStreak)}</div>
             `;
          }
       }
@@ -309,6 +355,11 @@ async function init(){
                justify-content: center;
                text-align: center;
             }
+            #longest{
+               margin-top: 20px;
+               padding-top: 20px;
+               border-top: 1px solid white;
+            }
          </style>
          </head>
          <body>
@@ -326,7 +377,7 @@ async function init(){
             </div>
             <div id="bloodsugar" class="section">
                <div>Current streak</div>
-               ${renderHighReading(lastHighReading)}
+               ${renderHighReading(streaks)}
             </div>
             <div id="joke" class="section">
                ${renderFun(fun)}
