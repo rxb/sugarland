@@ -1,4 +1,4 @@
-// thanks: @diakem/libre-link-up-api-client
+// based on: @diakem/libre-link-up-api-client
 
 const axios = require('axios');
 const LIBRE_LINK_SERVER = 'https://api-us.libreview.io';
