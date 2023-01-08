@@ -20,41 +20,34 @@ app.listen(port, () => {
 	console.log(`Listening at http://localhost:${port}`)
 })
 
+app.get('/last-high-reading-date', async (req, res) => {
+   const lastHighReading = await getLastHighReading();
+   return res.status(200).json({lastHighReading: lastHighReading});
+});
 
-async function init(){
-
-   app.get('/last-high-reading-date', async (req, res) => {
-      const lastHighReading = await getLastHighReading();
-      return res.status(200).json({lastHighReading: lastHighReading});
+app.get('/screenshot', async (req, res) => {
+   const kindleImagePath = await getKindleScreenshot({
+      url: 'http://localhost:3000/',
+      width: 1072,
+      height: 1448,
+      pixelDensity: 2
    });
+   res.setHeader('content-type', 'image/png');
+   console.log(kindleImagePath);
+   return res.sendFile(kindleImagePath);
+});
 
-   app.get('/screenshot', async (req, res) => {
-      const kindleImagePath = await getKindleScreenshot({
-         url: 'http://localhost:3000/',
-         width: 1072,
-         height: 1448,
-         pixelDensity: 2
-      });
-      res.setHeader('content-type', 'image/png');
-      console.log(kindleImagePath);
-      return res.sendFile(kindleImagePath);
+app.get('/', async (req, res) => {
+   const weather = await getWeather();
+   const fun = await getFun();
+   const lastHighReading = await getLastHighReading();
+   const streaks = await getStreaks(lastHighReading);
+   const html = render({
+      weather,
+      fun, 
+      streaks
    });
-
-   app.get('/', async (req, res) => {
-      const weather = await getWeather();
-      const fun = await getFun();
-      const lastHighReading = await getLastHighReading();
-      const streaks = await getStreaks(lastHighReading);
-      const html = render({
-         weather,
-         fun, 
-         streaks
-      });
-      res.send(html);
-   });
-
-}
-
-init();
+   res.send(html);
+});
 
 module.exports = { app };
