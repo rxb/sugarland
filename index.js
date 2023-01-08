@@ -33,7 +33,6 @@ app.get('/screenshot', async (req, res) => {
       pixelDensity: 2
    });
    res.setHeader('content-type', 'image/png');
-   console.log(kindleImagePath);
    return res.sendFile(kindleImagePath);
 });
 
